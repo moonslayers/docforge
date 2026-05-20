@@ -2,7 +2,7 @@
 
 **Generador de documentación multi-proyecto** — PDF desde Markdown con portada, índice y saltos de página automáticos.
 
-Creado a partir de `s2c`, migrado a **TypeScript** con arquitectura modular, CLI moderna y soporte para múltiples proyectos con configuración independiente.
+Creado con **TypeScript** con arquitectura modular, CLI moderna y soporte para múltiples proyectos con configuración independiente.
 
 ![docforge demo](assets/docforge-demo.gif)
 
