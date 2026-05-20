@@ -13,7 +13,7 @@
 import { Command } from 'commander';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative } from 'node:path';
 import { loadProjectConfig, listProjects, listProjectCases, loadGlobalConfig, saveGlobalConfig, resolveProjectsDir } from './core/config.js';
 import { resolveCasePaths, loadCaseByPath, parseProjectCaseNotation } from './core/resolver.js';
 import { generatePdf, generateAllPdfs } from './core/pdf.js';
@@ -27,6 +27,11 @@ import { getAgentTemplate } from './core/agent-template.js';
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
 );
+
+function showRelativePath(absPath: string): string {
+  const rel = relative(process.cwd(), absPath);
+  return rel.startsWith('.') ? rel : `./${rel}`;
+}
 
 const program = new Command();
 
@@ -84,10 +89,10 @@ program
           process.exit(1);
         }
 
-        resolvedProject = detected.projectName;
+        resolvedProject = detected.projectPath;
         resolvedCase = detected.caseName || opts.case;
 
-        logger.info(`📍 Detectado proyecto: ${resolvedProject}`);
+        logger.info(`📍 Detectado proyecto: ${detected.projectName}`);
         if (resolvedCase) logger.info(`📁 Detectado caso: ${resolvedCase}`);
       }
 
@@ -105,7 +110,8 @@ program
         process.exit(1);
       }
 
-      logger.info(`🔧 Proyecto: ${resolvedProject}`);
+      const showProject = resolvedProject.includes('/') ? showRelativePath(resolvedProject) : resolvedProject;
+      logger.info(`🔧 Proyecto: ${showProject}`);
       if (resolvedCase) logger.info(`📁 Caso: ${resolvedCase}`);
 
       const { project: projectConfig, casePaths } = resolveCasePaths(
@@ -129,7 +135,7 @@ program
         });
 
         if (result.success) {
-          logger.success(`PDF generado: ${result.filename}`);
+          logger.success(`PDF generado: ${showRelativePath(result.filename)}`);
         } else {
           logger.error(`Error: ${result.error || 'Error desconocido'}`);
           process.exit(1);
@@ -156,7 +162,10 @@ program
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error(message);
+      const cleanMessage = message.replace(/\/home\/[^/\s]+\/[^\s]*/g, (match) => {
+        try { return showRelativePath(match); } catch { return match; }
+      });
+      logger.error(cleanMessage);
       process.exit(1);
     }
   });
@@ -181,7 +190,7 @@ program
     const casosDir = join(projectDir, 'casos');
 
     if (existsSync(projectDir)) {
-      logger.error(`El directorio ya existe: ${projectDir}`);
+      logger.error(`El directorio ya existe: ${showRelativePath(projectDir)}`);
       process.exit(1);
     }
 
@@ -261,17 +270,17 @@ brand:
     writeFileSync(join(projectDir, agentFileName), agentContent, 'utf-8');
 
     logger.success(`Proyecto "${name}" creado en:`);
-    logger.info(`  ${projectDir}`);
+    logger.info(`  ${showRelativePath(projectDir)}`);
     logger.info('');
     logger.info('Estructura creada:');
-    logger.info(`  📁 ${projectDir}/`);
+    logger.info(`  📁 ${showRelativePath(projectDir)}/`);
     logger.info(`  ├── project.yml`);
     logger.info(`  ├── ${agentFileName}  ← Instrucciones para agentes de IA`);
     logger.info(`  └── casos/`);
     logger.info('');
     logger.info('Para empezar:');
     logger.info(`  1. Edita project.yml con los datos de tu proyecto`);
-    logger.info(`  2. Crea un caso: mkdir -p "${join(projectDir, 'casos', 'mi-caso')}"`);
+    logger.info(`  2. Crea un caso: mkdir -p "${showRelativePath(join(projectDir, 'casos', 'mi-caso'))}"`);
     logger.info(`  3. Dentro del proyecto ejecuta: docforge generate`);
   });
 
@@ -348,12 +357,15 @@ program
           logger.info('  (sin configuración)');
         } else {
           for (const [k, v] of Object.entries(config)) {
-            logger.info(`  ${k}: ${v}`);
+            const displayVal = typeof v === 'string' && v.startsWith('/')
+              ? showRelativePath(v)
+              : v;
+            logger.info(`  ${k}: ${displayVal}`);
           }
         }
         
         logger.info('');
-        logger.info(`📂 projectsDir resuelto: ${resolveProjectsDir()}`);
+        logger.info(`📂 projectsDir resuelto: ${showRelativePath(resolveProjectsDir())}`);
         break;
       }
       
@@ -376,12 +388,15 @@ program
         
         if (existsSync(configPath)) {
           logger.warn('Ya existe configuración en:');
-          logger.info(`  ${configPath}`);
+          logger.info(`  ${showRelativePath(configPath)}`);
           
           const config = loadGlobalConfig();
           logger.info('Configuración actual:');
           for (const [k, v] of Object.entries(config)) {
-            logger.info(`  ${k}: ${v}`);
+            const displayVal = typeof v === 'string' && v.startsWith('/')
+              ? showRelativePath(v)
+              : v;
+            logger.info(`  ${k}: ${displayVal}`);
           }
           process.exit(0);
         }
@@ -394,16 +409,16 @@ program
         saveGlobalConfig(defaultConfig);
         
         logger.success('Configuración global creada:');
-        logger.info(`  📁 ${configPath}`);
+        logger.info(`  📁 ${showRelativePath(configPath)}`);
         logger.info('');
-        logger.info(`  projectsDir: ${defaultConfig.projectsDir}`);
+        logger.info(`  projectsDir: ${showRelativePath(defaultConfig.projectsDir!)}`);
         logger.info('');
         logger.info('Para cambiarlo: docforge config set projectsDir <nueva-ruta>');
         break;
       }
       
       case 'path': {
-        logger.info(`📂 projectsDir: ${resolveProjectsDir()}`);
+        logger.info(`📂 projectsDir: ${showRelativePath(resolveProjectsDir())}`);
         break;
       }
       
