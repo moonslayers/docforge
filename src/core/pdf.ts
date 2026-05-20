@@ -158,6 +158,7 @@ export async function generatePdf(
       { content: fullContent },
       {
         dest: outputPath,
+        basedir: caseDir,
         stylesheet: cssPath ? [cssPath] : undefined,
         css: brandCSS || undefined,
         pdf_options: {
