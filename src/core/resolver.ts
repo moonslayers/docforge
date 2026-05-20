@@ -1,8 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { resolve, join, basename, dirname } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadProjectConfig } from './config.js';
-import type { ProjectConfig, CaseData, CaseMetadata } from '../types/index.js';
-import matter from 'gray-matter';
+import { loadCaseSections } from './section-loader.js';
+import type { ProjectConfig } from '../types/index.js';
+import type { CaseSections } from './section-loader.js';
 
 /**
  * Resuelve la ruta de un caso basado en el nombre del proyecto
@@ -49,28 +50,11 @@ export function resolveCasePaths(
 }
 
 /**
- * Carga los datos de un caso desde su directorio.
- * Busca manual-usuario.md dentro del directorio.
+ * Carga un caso usando el nuevo formato multi-archivo.
+ * Reemplaza el antiguo loadCaseData que usaba manual-usuario.md.
  */
-export function loadCaseData(caseDir: string): CaseData {
-  const manualPath = join(caseDir, 'manual-usuario.md');
-  
-  if (!existsSync(manualPath)) {
-    throw new Error(
-      `No se encontró manual-usuario.md en: ${caseDir}\n` +
-      `Cada caso debe contener un archivo manual-usuario.md`
-    );
-  }
-
-  const raw = readFileSync(manualPath, 'utf-8');
-  const parsed = matter(raw);
-
-  return {
-    frontmatter: (parsed.data || {}) as CaseMetadata,
-    content: parsed.content,
-    raw,
-    path: manualPath,
-  };
+export function loadCaseByPath(caseDir: string): CaseSections {
+  return loadCaseSections(caseDir);
 }
 
 /**

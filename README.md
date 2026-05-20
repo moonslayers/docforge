@@ -1,6 +1,6 @@
 # 🔨 docforge
 
-**Generador de documentación multi-proyecto** — PDF desde Markdown con soporte multi-proyecto, autodetección desde el CWD y configuración global.
+**Generador de documentación multi-proyecto** — PDF desde Markdown con portada, índice y saltos de página automáticos.
 
 Creado a partir de `s2c`, migrado a **TypeScript** con arquitectura modular, CLI moderna y soporte para múltiples proyectos con configuración independiente.
 
@@ -48,7 +48,7 @@ docforge list cases mi-proyecto
 
 ### `docforge generate [project]`
 
-Genera PDFs a partir de los manuales Markdown.
+Genera PDFs a partir de las secciones Markdown.
 
 | Sin argumentos | Con proyecto |
 |---|---|
@@ -96,23 +96,14 @@ docforge init otra-app
 # Crea: ~/Documentos/otra-app/
 ```
 
-**Flags:**
-
-| Opción | Descripción |
-|---|---|
-| `-p, --path <dir>` | Ruta base alternativa (default: directorio actual) |
-| `--template <ruta>` | Copiar estructura desde un proyecto existente |
-
 **¿Qué genera `init`?**
 - `project.yml` — Configuración del proyecto (colores, empresa, PDF defaults)
 - `AGENTS.md` — Guía para agentes de IA con instrucciones de cómo crear documentación
-- `casos/` — Carpeta lista para agregar casos de uso
+- `casos/` — Carpeta lista para agregar secciones
 
 ---
 
 ### `docforge list [projects|cases]`
-
-Lista proyectos disponibles o casos de un proyecto específico.
 
 ```bash
 docforge list projects
@@ -152,35 +143,26 @@ docforge config set agentFile CLAUDE.md
 ¿El CWD contiene project.yml?
   ├─ Sí → genera todos los casos de ese proyecto
   └─ No
-     ¿El CWD contiene manual-usuario.md?
+     ¿El CWD contiene archivos .md?
        ├─ Sí → busca project.yml hacia arriba y genera solo ese caso
        └─ No → muestra error con ayuda
 ```
 
-Esto permite trabajar cómodamente desde la terminal:
-
 ```bash
 cd projects/credilink
-docforge generate     # Listo, ya detectó credilink
+docforge generate     # Detecta credilink, genera todo
 
 cd projects/credilink/casos/mi-caso
-docforge generate     # Listo, detectó el caso específico
+docforge generate     # Detecta caso específico
 ```
 
 ---
 
 ## 🤖 AGENTS.md — Instrucciones para agentes de IA
 
-Al hacer `docforge init`, se genera automáticamente un `AGENTS.md` dentro del proyecto. Este archivo contiene todo lo que un agente de IA (Claude, Gemini, etc.) necesita saber para crear documentación:
+Al hacer `docforge init`, se genera automáticamente un `AGENTS.md` dentro del proyecto con instrucciones para que un agente de IA (Claude, Gemini, etc.) pueda crear documentación.
 
-- ✅ Cómo estructurar un caso de uso
-- ✅ Formato del frontmatter YAML
-- ✅ Placeholders disponibles (`{{project_full_name}}`, `{{case_title}}`, etc.)
-- ✅ Clases CSS del PDF (`.cover-page`, `.subtitle`, `.page-break`, etc.)
-- ✅ Buenas prácticas de documentación técnica
-- ✅ Cómo generar el PDF con `docforge generate`
-
-**El nombre del archivo es configurable:**
+El nombre del archivo es configurable:
 
 ```bash
 docforge config set agentFile CLAUDE.md
@@ -202,13 +184,9 @@ docforge tiene **4 niveles de precedencia** para resolver el directorio de proye
 | 🥉 3. Archivo global | `~/.config/docforge/config.json` | `{ "projectsDir": "~/docs" }` |
 | 4. Default | `./projects` relativo al CWD | |
 
-El archivo de configuración global se crea con:
-
 ```bash
 docforge config init
 ```
-
-Y se almacena en `~/.config/docforge/config.json`:
 
 ```json
 {
@@ -227,9 +205,14 @@ mi-proyecto/
 ├── AGENTS.md                   ← Instrucciones para agentes de IA
 └── casos/
     └── nombre-del-caso/
-        ├── manual-usuario.md   ← Manual en Markdown + frontmatter YAML
+        ├── cover.md            ← Opcional. Portada personalizada.
+        ├── 01-primer-paso.md   ← Secciones con prefijo numérico (NN-*.md)
+        ├── 02-segundo-paso.md
+        ├── 03-tercer-paso.md
         └── images/             ← Capturas de pantalla
 ```
+
+El prefijo numérico de 2 dígitos define el orden de las secciones en el PDF.
 
 ---
 
@@ -266,11 +249,11 @@ brand:
 
 ---
 
-## 📝 Formato de casos
+## 📝 Formato de secciones (`NN-*.md`)
 
-### Frontmatter YAML (obligatorio al inicio de `manual-usuario.md`)
+Cada archivo de sección es **Markdown puro** (sin HTML), con frontmatter YAML opcional:
 
-```yaml
+```markdown
 ---
 case_title: "Liquidar Anticipadamente con Gastos de Cobranza"
 case_version: "1.0"
@@ -280,11 +263,36 @@ case_status: "Final"
 case_description: "Proceso para liquidar anticipadamente un crédito..."
 manual_subtitle: "Manual de Usuario"
 ---
+
+## Requisitos Previos
+
+- El crédito **no debe tener ningún convenio activo** al iniciar el proceso.
+- Tener acceso al módulo de **Estados de Cuenta**.
+```
+
+Reglas:
+- El **primer `##`** de cada archivo se usa como título en el índice automático
+- Los frontmatter de cover.md y la primera sección proveen metadatos (título, versión, etc.)
+- No necesitas portada, índice ni saltos de página — docforge lo genera solo
+
+### Portada personalizada (`cover.md`, opcional)
+
+Si **no existe** `cover.md`, docforge genera una portada automática.
+Si quieres una portada personalizada, créala:
+
+```markdown
+---
+case_title: "Mi Título"
+---
+
+# {{project_full_name}}
+
+<p class="subtitle">Mi portada</p>
+
+Versión: {{case_version}}
 ```
 
 ### Placeholders disponibles
-
-Usa `{{variable}}` en el markdown. Se reemplazan automáticamente al generar el PDF:
 
 | Placeholder | Fuente | Ejemplo |
 |---|---|---|
@@ -292,34 +300,23 @@ Usa `{{variable}}` en el markdown. Se reemplazan automáticamente al generar el 
 | `{{project_name}}` | `project.yml → name` | "CrediLink" |
 | `{{project_version}}` | `project.yml → version` | "2.0.0" |
 | `{{company_name}}` | `project.yml → company.name` | "Gobierno de BC" |
-| `{{case_title}}` | Frontmatter del caso | "Liquidar Anticipadamente" |
-| `{{case_version}}` | Frontmatter del caso | "1.0" |
-| `{{case_date}}` | Frontmatter del caso | "2026-05-20" |
-| `{{case_author}}` | Frontmatter del caso | "Equipo de Documentación" |
-| `{{case_status}}` | Frontmatter del caso | "Borrador" |
-| `{{case_description}}` | Frontmatter del caso | "Proceso para..." |
-| `{{manual_subtitle}}` | Frontmatter del caso | "Manual de Usuario" |
+| `{{case_title}}` | Frontmatter de cover.md o 1ra sección | "Liquidar Anticipadamente" |
+| `{{case_version}}` | Frontmatter | "1.0" |
+| `{{case_date}}` | Frontmatter | "2026-05-20" |
+| `{{case_author}}` | Frontmatter | "Equipo de Documentación" |
+| `{{case_status}}` | Frontmatter | "Borrador" |
+| `{{case_description}}` | Frontmatter | "Proceso para..." |
+| `{{manual_subtitle}}` | Frontmatter | "Manual de Usuario" |
 
-### Clases CSS para el PDF
+---
 
-| Clase | Uso |
-|---|---|
-| `<div class="cover-page">` | Portada centrada con salto de página |
-| `<p class="subtitle">` | Subtítulo en portada (uppercase) |
-| `<p class="meta">` | Metadatos (versión, fecha, autor) |
-| `<div class="page-break">` | Salto de página explícito |
-| `<div class="toc">` | Tabla de contenidos |
-| `blockquote` | Notas importantes (borde izquierdo) |
-| `blockquote > strong` | Advertencias (borde naranja) |
+## 🧹 Linter
 
-### Buenas prácticas
-
-1. **Portada**: Usa `<div class="cover-page">` al inicio con `# {{project_full_name}}`
-2. **Índice**: Después de la portada, incluye un índice numerado
-3. **Pasos**: Cada paso con `## Paso N: Descripción`, texto explicativo + imagen
-4. **Imágenes**: Referencia con `![Descripción](./images/archivo.png)`
-5. **Saltos de página**: `<div style="page-break-before: always;"></div>` entre secciones
-6. **Notas**: `> ⚠️ **IMPORTANTE:** texto` para advertencias
+```bash
+npm run lint        → eslint src/
+npm run lint:fix    → eslint src/ --fix
+npm run check       → tsc --noEmit && eslint src/
+```
 
 ---
 
@@ -334,6 +331,7 @@ Usa `{{variable}}` en el markdown. Se reemplazan automáticamente al generar el 
 | js-yaml 4.x | Parseo de YAML |
 | md-to-pdf 5.x | Conversión Markdown → PDF |
 | Puppeteer | Renderizado de PDF |
+| ESLint + typescript-eslint | Linter |
 
 ---
 
@@ -342,8 +340,6 @@ Usa `{{variable}}` en el markdown. Se reemplazan automáticamente al generar el 
 La carpeta `projects/` está en `.gitignore` para que **no se suba a GitHub**.
 Solo el código de la herramienta (`docforge/`) se comparte en el repositorio.
 Los datos de cada proyecto se mantienen localmente.
-
-El contenido de `projects/` se ignora, pero la carpeta vacía se mantiene en el repo mediante un `.gitkeep`.
 
 ---
 

@@ -13,14 +13,15 @@
 import { Command } from 'commander';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve, basename, dirname } from 'node:path';
+import { join, resolve } from 'node:path';
 import { loadProjectConfig, listProjects, listProjectCases, loadGlobalConfig, saveGlobalConfig, resolveProjectsDir } from './core/config.js';
-import { resolveCasePaths, loadCaseData, parseProjectCaseNotation } from './core/resolver.js';
+import { resolveCasePaths, loadCaseByPath, parseProjectCaseNotation } from './core/resolver.js';
 import { generatePdf, generateAllPdfs } from './core/pdf.js';
-import { ensureDir } from './utils/fs.js';
+
 import { logger } from './utils/logger.js';
-import { detectProjectFromCwd, type DetectedContext } from './core/detect.js';
-import type { GenerateOptions, DocforgeGlobalConfig } from './types/index.js';
+import { detectProjectFromCwd } from './core/detect.js';
+import type { DocforgeGlobalConfig } from './types/index.js';
+import type { CaseSections } from './core/section-loader.js';
 import { getAgentTemplate } from './core/agent-template.js';
 
 const packageJson = JSON.parse(
@@ -121,8 +122,8 @@ program
 
       if (resolvedCase) {
         // Generar un solo caso
-        const caseData = loadCaseData(casePaths[0]);
-        const result = await generatePdf(projectConfig, caseData, {
+        const caseSections = loadCaseByPath(casePaths[0]);
+        const result = await generatePdf(projectConfig, caseSections, {
           output: opts.output,
           css: opts.css,
         });
@@ -135,7 +136,7 @@ program
         }
       } else {
         // Generar todos los casos
-        const cases = casePaths.map(path => loadCaseData(path));
+        const cases: CaseSections[] = casePaths.map(path => loadCaseByPath(path));
         logger.info(`Generando ${cases.length} PDF(s)...`);
 
         const results = await generateAllPdfs(projectConfig, cases, {
@@ -299,7 +300,6 @@ program
         logger.info(`  📁 ${proj}`);
       }
     } else if (resourceType === 'cases') {
-      const projName = project || type;
       const actualProject = project || (type === 'cases' ? undefined : type);
 
       if (!actualProject) {

@@ -1,8 +1,9 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mdToPdf } from 'md-to-pdf';
-import type { PdfResult, BrandColors, ProjectConfig, CaseData } from '../types/index.js';
+import type { PdfResult, ProjectConfig } from '../types/index.js';
+import type { CaseSections } from './section-loader.js';
 import { buildBrandCSS } from './template.js';
 import { replacePlaceholders } from './placeholders.js';
 import { buildFrontmatter } from './metadata.js';
@@ -20,24 +21,89 @@ const TEMPLATES_DIR = join(ROOT, 'templates');
 const DEFAULT_CSS = join(TEMPLATES_DIR, 'pdf-style.css');
 
 /**
- * Genera un PDF a partir de un caso de uso.
+ * Genera el HTML de la portada automática.
+ * Se usa cuando no existe cover.md en el caso.
+ */
+function generateCoverHtml(
+  projectConfig: ProjectConfig,
+  caseMeta: Record<string, unknown>
+): string {
+  const title = (caseMeta.case_title as string) || projectConfig.full_name || projectConfig.name;
+  const subtitle = (caseMeta.manual_subtitle as string) || 'Manual de Usuario';
+  const version = (caseMeta.case_version as string) || projectConfig.version || '1.0';
+  const date = (caseMeta.case_date as string) || new Date().toISOString().split('T')[0];
+  const author = (caseMeta.case_author as string) || projectConfig.pdf?.author || 'Equipo de Documentación';
+  const status = (caseMeta.case_status as string) || projectConfig.pdf?.status || 'Borrador';
+
+  return `<div class="cover-page">
+
+<h1>${projectConfig.full_name || projectConfig.name}</h1>
+
+<p class="subtitle">${subtitle}</p>
+
+<h1>${title}</h1>
+
+<p class="meta">
+  Versión: ${version} | Fecha: ${date} | Estado: ${status}<br>
+  ${author}
+</p>
+
+</div>
+
+<div style="page-break-before: always;"></div>`;
+}
+
+/**
+ * Genera el índice a partir de los títulos de las secciones.
+ */
+function generateTocHtml(sections: { title: string }[]): string {
+  if (sections.length === 0) return '';
+
+  let toc = '<div class="toc">\n\n## Índice\n\n';
+  
+  for (let i = 0; i < sections.length; i++) {
+    const anchor = sections[i].title
+      .toLowerCase()
+      .replace(/[^a-z0-9áéíóúüñ]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    toc += `${i + 1}. [${sections[i].title}](#${anchor})\n`;
+  }
+
+  toc += '\n</div>\n\n<div style="page-break-before: always;"></div>\n';
+  return toc;
+}
+
+/**
+ * Extrae los metadatos del caso desde las secciones.
+ * Prioridad: cover frontmatter > primera sección frontmatter > defaults
+ */
+function extractCaseMetadata(sections: CaseSections): Record<string, unknown> {
+  const coverMeta = sections.cover?.frontmatter || {};
+  const firstSectionMeta = sections.sections[0]?.frontmatter || {};
+
+  return { ...firstSectionMeta, ...coverMeta };
+}
+
+/**
+ * Genera un PDF a partir de un caso multi-archivo.
  * 
  * @param projectConfig - Configuración del proyecto
- * @param caseData - Datos del caso (markdown + frontmatter)
+ * @param caseSections - Secciones del caso (cover + NN-*.md)
  * @param options - Opciones de generación
  * @returns Resultado de la generación del PDF
  */
 export async function generatePdf(
   projectConfig: ProjectConfig,
-  caseData: CaseData,
+  caseSections: CaseSections,
   options: { output?: string; css?: string } = {}
 ): Promise<PdfResult> {
-  const caseDir = dirname(caseData.path);
+  const caseDir = caseSections.caseDir;
   const caseName = basename(caseDir);
 
   try {
-    // 1. Construir metadata combinada
-    const frontmatter = buildFrontmatter(projectConfig, caseData);
+    // 1. Extraer metadatos del caso
+    const caseMeta = extractCaseMetadata(caseSections);
+    buildFrontmatter(projectConfig, { frontmatter: caseMeta, content: '', raw: '', path: '' });
 
     // 2. Validar CSS
     const cssPath = options.css 
@@ -52,15 +118,44 @@ export async function generatePdf(
       ? resolve(options.output, outputName)
       : join(caseDir, outputName);
 
-    // 4. Reemplazar placeholders {{...}} en el contenido
-    const finalContent = replacePlaceholders(caseData.raw, projectConfig, caseData.frontmatter);
+    // 4. Construir el contenido completo del PDF
+    let fullContent = '';
+
+    // 4a. Portada
+    if (caseSections.cover) {
+      // Usar cover.md personalizado
+      fullContent += replacePlaceholders(caseSections.cover.content, projectConfig, caseMeta);
+      fullContent += '\n\n<div style="page-break-before: always;"></div>\n\n';
+    } else {
+      // Generar portada automática
+      fullContent += generateCoverHtml(projectConfig, caseMeta);
+    }
+
+    // 4b. Índice generado automáticamente
+    fullContent += generateTocHtml(caseSections.sections.map(s => ({ title: s.title })));
+
+    // 4c. Secciones con saltos de página
+    for (let i = 0; i < caseSections.sections.length; i++) {
+      const section = caseSections.sections[i];
+      let sectionContent = section.content;
+
+      // Aplicar placeholders al contenido de la sección
+      sectionContent = replacePlaceholders(sectionContent, projectConfig, caseMeta);
+
+      fullContent += sectionContent;
+
+      // Salto de página entre secciones (excepto después de la última)
+      if (i < caseSections.sections.length - 1) {
+        fullContent += '\n\n<div style="page-break-before: always;"></div>\n\n';
+      }
+    }
 
     // 5. Generar CSS con brand colors
     const brandCSS = buildBrandCSS(projectConfig.brand);
 
     // 6. Convertir a PDF
     const pdf = await mdToPdf(
-      { content: finalContent, path: caseData.path },
+      { content: fullContent },
       {
         dest: outputPath,
         stylesheet: cssPath ? [cssPath] : undefined,
@@ -98,14 +193,14 @@ export async function generatePdf(
  */
 export async function generateAllPdfs(
   projectConfig: ProjectConfig,
-  cases: CaseData[],
+  cases: CaseSections[],
   options: { output?: string; css?: string } = {}
 ): Promise<PdfResult[]> {
   const results: PdfResult[] = [];
 
-  for (const caseData of cases) {
-    console.log(`  📄 Generando: ${basename(dirname(caseData.path))}...`);
-    const result = await generatePdf(projectConfig, caseData, options);
+  for (const caseSections of cases) {
+    console.log(`  📄 Generando: ${basename(caseSections.caseDir)}...`);
+    const result = await generatePdf(projectConfig, caseSections, options);
     results.push(result);
 
     if (result.success) {
@@ -117,5 +212,3 @@ export async function generateAllPdfs(
 
   return results;
 }
-
-export { buildBrandCSS };

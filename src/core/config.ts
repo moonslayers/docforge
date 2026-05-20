@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import yaml from 'js-yaml';
 import type { ProjectConfig, DocforgeGlobalConfig } from '../types/index.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Busca y carga la configuración de un proyecto.
@@ -134,9 +135,9 @@ export function loadGlobalConfig(): DocforgeGlobalConfig {
       const raw = readFileSync(configPath, 'utf-8');
       return JSON.parse(raw) as DocforgeGlobalConfig;
     }
-  } catch (err) {
+  } catch {
     // Si el archivo está corrupto, ignorar silenciosamente
-    console.warn(`⚠️  Archivo de configuración inválido: ${configPath}`);
+    logger.warn(`⚠️  Archivo de configuración inválido: ${configPath}`);
   }
   
   return {};

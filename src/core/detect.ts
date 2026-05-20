@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname, basename } from 'node:path';
-import { resolveProjectsDir } from './config.js';
+
 
 /**
  * Resultado de la detección de proyecto/caso desde el CWD.

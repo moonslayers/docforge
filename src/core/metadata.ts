@@ -1,4 +1,4 @@
-import type { ProjectConfig, CaseData, CaseMetadata } from '../types/index.js';
+import type { ProjectConfig, CaseData } from '../types/index.js';
 
 /**
  * Combina la metadata del proyecto con la del caso.
