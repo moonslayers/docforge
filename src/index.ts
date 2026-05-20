@@ -4,21 +4,24 @@
  * docforge — CLI Entry Point
  * 
  * Uso:
- *   docforge generate <project> [options]    Generar PDF(s)
+ *   docforge generate [project] [options]    Generar PDF(s)
  *   docforge init <project-name> [options]    Crear nuevo proyecto
  *   docforge list [projects|cases] [project]  Listar proyectos/casos
+ *   docforge config [action] [key] [value]    Gestionar configuración global
  */
 
 import { Command } from 'commander';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, dirname } from 'node:path';
 import { loadProjectConfig, listProjects, listProjectCases, loadGlobalConfig, saveGlobalConfig, resolveProjectsDir } from './core/config.js';
 import { resolveCasePaths, loadCaseData, parseProjectCaseNotation } from './core/resolver.js';
 import { generatePdf, generateAllPdfs } from './core/pdf.js';
 import { ensureDir } from './utils/fs.js';
 import { logger } from './utils/logger.js';
+import { detectProjectFromCwd, type DetectedContext } from './core/detect.js';
 import type { GenerateOptions, DocforgeGlobalConfig } from './types/index.js';
+import { getAgentTemplate } from './core/agent-template.js';
 
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
@@ -36,7 +39,7 @@ program
 program
   .command('generate')
   .description('Generar PDF(s) para un proyecto')
-  .argument('[project]', 'Nombre del proyecto o ruta (ej: credilink, credilink:mi-caso, ./ruta/al/proyecto)')
+  .argument('[project]', 'Nombre del proyecto o ruta (ej: credilink, credilink:mi-caso)')
   .option('-c, --case <name>', 'Caso específico a generar')
   .option('-a, --all', 'Generar todos los casos del proyecto')
   .option('-o, --output <dir>', 'Directorio de salida para el PDF')
@@ -55,15 +58,6 @@ program
       debug?: boolean;
     };
 
-    if (!project && !opts.case) {
-      logger.error('Debes especificar un proyecto.');
-      logger.info('Uso: docforge generate <proyecto> [--case <caso> | --all]');
-      logger.info('Ej:  docforge generate credilink --case liquidar-anticipadamente');
-      logger.info('     docforge generate credilink:liquidar-anticipadamente');
-      logger.info('     docforge generate credilink --all');
-      process.exit(1);
-    }
-
     if (opts.debug) {
       process.env.DEBUG = 'true';
     }
@@ -72,9 +66,33 @@ program
       let resolvedProject = project;
       let resolvedCase = opts.case;
 
-      // Soporte para sintaxis proyecto:caso
-      if (project && !resolvedCase) {
-        const parsed = parseProjectCaseNotation(project);
+      // ── Sin argumentos: autodetección desde el CWD ──
+      if (!resolvedProject) {
+        const detected = detectProjectFromCwd();
+        
+        if (!detected) {
+          logger.error('No se detectó un proyecto aquí.');
+          logger.info('Asegúrate de estar dentro de la carpeta de un proyecto (con project.yml).');
+          logger.info('');
+          logger.info('Uso explícito:');
+          logger.info('  docforge generate <proyecto> [--case <caso> | --all]');
+          logger.info('');
+          logger.info('Ejemplos:');
+          logger.info('  docforge generate credilink --all');
+          logger.info('  docforge generate credilink:liquidar-anticipadamente');
+          process.exit(1);
+        }
+
+        resolvedProject = detected.projectName;
+        resolvedCase = detected.caseName || opts.case;
+
+        logger.info(`📍 Detectado proyecto: ${resolvedProject}`);
+        if (resolvedCase) logger.info(`📁 Detectado caso: ${resolvedCase}`);
+      }
+
+      // ── Soporte para sintaxis proyecto:caso ──
+      if (resolvedProject && !resolvedCase) {
+        const parsed = parseProjectCaseNotation(resolvedProject);
         if (parsed) {
           resolvedProject = parsed.project;
           resolvedCase = parsed.case;
@@ -146,16 +164,17 @@ program
 
 program
   .command('init')
-  .description('Inicializar un nuevo proyecto')
+  .description('Inicializar un nuevo proyecto en el directorio actual')
   .argument('<name>', 'Nombre del proyecto')
-  .option('-p, --path <dir>', 'Ruta donde crear el proyecto (default: ./projects/<name>)')
+  .option('-p, --path <dir>', 'Ruta base donde crear el proyecto (default: directorio actual)')
   .option('--template <path>', 'Ruta a un proyecto existente para usar como template')
   .action((name: string, options: { path?: string; template?: string }) => {
     logger.header();
 
-    const projectDir = options.path 
+    // Crear proyecto en el CWD (el usuario decide dónde)
+    const projectDir = options.path
       ? resolve(process.cwd(), options.path, name)
-      : resolve(resolveProjectsDir(), name);
+      : resolve(process.cwd(), name);
 
     const projectYml = join(projectDir, 'project.yml');
     const casosDir = join(projectDir, 'casos');
@@ -171,7 +190,6 @@ program
     // Si hay template, copiarlo
     if (options.template) {
       logger.info(`Copiando template desde: ${options.template}`);
-      // Crear project.yml desde el template
       const templateConfig = loadProjectConfig(options.template);
       const templateYaml = `# ${templateConfig.name} → ${name}
 # Adapta esta configuración a tu proyecto
@@ -232,18 +250,28 @@ brand:
       writeFileSync(projectYml, defaultYaml, 'utf-8');
     }
 
+    // ── Generar AGENTS.md dentro del proyecto ──
+    const globalConfig = loadGlobalConfig();
+    const agentFileName = (globalConfig.agentFile as string) || 'AGENTS.md';
+    const agentContent = getAgentTemplate({
+      projectName: name,
+      agentFileName,
+    });
+    writeFileSync(join(projectDir, agentFileName), agentContent, 'utf-8');
+
     logger.success(`Proyecto "${name}" creado en:`);
     logger.info(`  ${projectDir}`);
     logger.info('');
     logger.info('Estructura creada:');
     logger.info(`  📁 ${projectDir}/`);
     logger.info(`  ├── project.yml`);
+    logger.info(`  ├── ${agentFileName}  ← Instrucciones para agentes de IA`);
     logger.info(`  └── casos/`);
     logger.info('');
     logger.info('Para empezar:');
     logger.info(`  1. Edita project.yml con los datos de tu proyecto`);
     logger.info(`  2. Crea un caso: mkdir -p "${join(projectDir, 'casos', 'mi-caso')}"`);
-    logger.info(`  3. Genera: docforge generate ${name} --all`);
+    logger.info(`  3. Dentro del proyecto ejecuta: docforge generate`);
   });
 
 // ─── Comando: list ───────────────────────────────────────────
@@ -271,7 +299,7 @@ program
         logger.info(`  📁 ${proj}`);
       }
     } else if (resourceType === 'cases') {
-      const projName = project || type; // Si el primer arg es "cases", el segundo es el proyecto
+      const projName = project || type;
       const actualProject = project || (type === 'cases' ? undefined : type);
 
       if (!actualProject) {
