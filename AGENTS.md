@@ -19,7 +19,7 @@ This file covers what the README and source code don't make obvious.
 - Core modules under `src/core/`:
 
 | Module | Responsibility |
-|---|---|
+| --- | --- |
 | `config.ts` | Loads project.yml, global config from `~/.config/docforge/`, resolves projectsDir |
 | `detect.ts` | Auto-detects project/case from CWD (walks up looking for project.yml) |
 | `resolver.ts` | Resolves case paths, delegates to section-loader |
@@ -37,7 +37,7 @@ This file covers what the README and source code don't make obvious.
 
 The case format changed from a single `manual-usuario.md` to **multi-file**:
 
-```
+```md
 casos/mi-caso/
 ├── cover.md            ← Optional. Custom cover page.
 ├── 01-seccion.md       ← Sections with numeric prefix (order)
@@ -53,25 +53,30 @@ casos/mi-caso/
 ## Key flows
 
 ### `docforge generate` (no args)
+
 1. `detectProjectFromCwd()` walks up from CWD looking for `project.yml` (max 10 levels)
 2. If found, checks if CWD has `.md` files → specific case, else → entire project
 
 ### `docforge generate <project> --case <name>`
+
 1. `resolveCasePaths()` → case directory
 2. `loadCaseByPath()` → `loadCaseSections()` reads multi-file format
 3. `generatePdf()` builds cover + TOC + sections → calls `mdToPdf()`
 
 ## Config resolution order
+
 CLI `--projects-dir` > `DOCFORGE_PROJECTS_DIR` env var > `~/.config/docforge/config.json` > `./projects` (relative to CWD)
 
 Global config path respects `XDG_CONFIG_HOME` if set, else `~/.config/docforge/config.json`
 
 ## Puppeteer
+
 - Comes in via `md-to-pdf` (transitive dep)
 - PDF generation passes `--no-sandbox` and `--disable-setuid-sandbox` automatically
 - Debug mode: `--debug` flag sets `process.env.DEBUG = 'true'` (checked by logger)
 
 ## Conventions
+
 - Case folders: kebab-case
 - Section files: `NN-nombre-con-guiones.md` (2-digit prefix)
 - Images: `paso-N-descripcion.png` inside `images/`
@@ -79,5 +84,6 @@ Global config path respects `XDG_CONFIG_HOME` if set, else `~/.config/docforge/c
 - The frontmatter field `case_description` replaces the old `rawData.txt`
 
 ## What this tool is NOT
+
 - `docforge init` generates an `AGENTS.md` **inside user projects** (as a template for documentation agents). That generated file is produced by `src/core/agent-template.ts` and is separate from this file.
 - This repo has no GitHub Actions, no pre-commit hooks, no monorepo tooling.
