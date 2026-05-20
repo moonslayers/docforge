@@ -1,0 +1,24 @@
+name: "docforge"
+full_name: "docforge — Generador de Documentación Multi-Proyecto"
+description: "Genera PDF profesionales desde Markdown con portada, índice y saltos de página automáticos"
+version: "1.0.0"
+
+company:
+  name: "Open Source"
+  logo: ""
+
+pdf:
+  author: "Equipo de Documentación"
+  status: "Final"
+  page_size: A4
+  margins: "20mm 15mm 20mm 15mm"
+
+brand:
+  primary: "#1a365d"
+  secondary: "#2b6cb0"
+  accent: "#e2e8f0"
+  text: "#2d3748"
+  border: "#cbd5e0"
+  success: "#276749"
+  warning: "#c05621"
+  danger: "#c53030"
