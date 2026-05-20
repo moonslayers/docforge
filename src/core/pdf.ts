@@ -69,7 +69,7 @@ function generateTocHtml(sections: { title: string }[]): string {
     toc += `${i + 1}. [${sections[i].title}](#${anchor})\n`;
   }
 
-  toc += '\n</div>\n\n<div style="page-break-before: always;"></div>\n';
+  toc += '\n</div>\n\n<div style="page-break-before: always;"></div>\n\n';
   return toc;
 }
 
