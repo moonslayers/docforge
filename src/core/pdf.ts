@@ -15,16 +15,12 @@ function parseMargin(marginStr: string): { top: string; right: string; bottom: s
 }
 
 /**
- * Genera un anchor único para una sección usando su jerarquía + título.
- * Ej: order [1, 1], title "Requisitos" → "1-1-requisitos"
+ * Genera un ID de anchor único basado en la jerarquía numérica.
+ * Se usa tanto para el TOC como para el <a id="..."> insertado en el heading.
+ * Ej: order [1, 1] → "s-1-1"
  */
-function buildAnchor(section: { order: number[]; title: string }): string {
-  const prefix = section.order.join('-');
-  const slug = section.title
-    .toLowerCase()
-    .replace(/[^a-z0-9áéíóúüñ]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return `${prefix}-${slug}`;
+function buildAnchorId(order: number[]): string {
+  return `s-${order.join('-')}`;
 }
 
 /**
@@ -98,7 +94,7 @@ function generateTocHtml(sections: SectionInfo[]): string {
   for (const section of sections) {
     const level = section.depth;
     const numberStr = section.order.join('.');
-    const anchor = buildAnchor(section);
+    const anchor = buildAnchorId(section.order);
     toc += `<p class="toc-level-${level}"><a href="#${anchor}">${numberStr}. ${section.title}</a></p>\n`;
   }
 
@@ -172,14 +168,16 @@ export async function generatePdf(
       const section = caseSections.sections[i];
       let sectionContent = section.content;
 
-      // Prepender numbering jerárquico al primer heading ## (si no lo tiene ya)
+      // Prepender numbering jerárquico al primer heading ##
+      // e insertar un <a id="s-N-N"> para que el TOC pueda apuntar a un anchor fijo
       const numbering = section.order.join('.');
+      const anchorId = buildAnchorId(section.order);
       sectionContent = sectionContent.replace(
         /^(##\s+)(.*)$/m,
         (match, headingMark, headingText) => {
           // Evitar duplicar si ya tiene el numbering
           if (headingText.startsWith(numbering + ' ')) return match;
-          return `${headingMark}${numbering} ${headingText}`;
+          return `<a id="${anchorId}"></a>\n${headingMark}${numbering} ${headingText}`;
         }
       );
 

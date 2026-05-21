@@ -242,8 +242,3 @@ pre code {
   margin-bottom: 1px;
 }
 
-/* Párrafos del TOC: resetear margin */
-.toc p {
-  margin: 0;
-  padding: 0;
-}
