@@ -276,14 +276,21 @@ mi-proyecto/
 └── casos/
     └── nombre-del-caso/
         ├── cover.md            ← Opcional. Portada personalizada.
-        ├── 01-primer-paso.md   ← Secciones con prefijo numérico (NN-*.md)
-        ├── 02-segundo-paso.md
-        ├── 03-tercer-paso.md
+        ├── 01-introduccion.md  ← Sección nivel 1 (NN-*.md)
+        ├── 01.01-requisitos.md ← Subsección nivel 2 (NN.NN-*.md)
+        ├── 01.01.01-windows.md ← Sub-subsección nivel 3
+        ├── 01.02-instalacion.md
+        ├── 02-configuracion.md
         └── images/             ← Capturas de pantalla
         └── html/               ← HTMLs para generar imágenes
 ```
 
-El prefijo numérico de 2 dígitos define el orden de las secciones en el PDF.
+El prefijo numérico define el orden y la jerarquía:
+- `NN-nombre.md` → nivel 1 (capítulos, con page break)
+- `NN.NN-nombre.md` → nivel 2 (subsecciones, fluyen continuo)
+- `NN.NN.NN-nombre.md` → nivel 3 (sub-subsecciones)
+
+Los puntos (`.`) en el prefijo indican subniveles. El TOC se genera automáticamente con numbering jerárquico (1, 1.1, 1.1.1, 1.2, 2, ...).
 
 ---
 
@@ -306,6 +313,7 @@ pdf:
   margins: "20mm 15mm 20mm 15mm"
   font_size: "11pt"
   line_height: 1.6
+  page_break_levels: [1]       # ← Niveles que inician página nueva (default: [1])
 
 brand:
   primary: "#6a1c32"        # Títulos y encabezados
@@ -346,6 +354,22 @@ Reglas:
 - Los frontmatter de cover.md y la primera sección proveen metadatos (título, versión, etc.)
 - No necesitas portada, índice ni saltos de página — docforge lo genera solo
 
+### Secciones jerárquicas (subniveles)
+
+Puedes crear subsecciones usando puntos en el prefijo numérico:
+
+```
+casos/mi-manual/
+├── 01-introduccion.md          → "1. Introducción" (nivel 1)
+├── 01.01-requisitos.md         → "1.1 Requisitos" (nivel 2)
+├── 01.01.01-windows.md         → "1.1.1 Windows" (nivel 3)
+├── 01.02-instalacion.md        → "1.2 Instalación" (nivel 2)
+├── 02-configuracion.md         → "2. Configuración" (nivel 1)
+└── 02.01-basico.md             → "2.1 Básico" (nivel 2)
+```
+
+El TOC se genera automáticamente con indentación y numbering jerárquico.
+
 ### Portada personalizada (`cover.md`, opcional)
 
 Si **no existe** `cover.md`, docforge genera una portada automática.
@@ -378,6 +402,49 @@ Versión: {{case_version}}
 | `{{case_status}}` | Frontmatter | "Borrador" |
 | `{{case_description}}` | Frontmatter | "Proceso para..." |
 | `{{manual_subtitle}}` | Frontmatter | "Manual de Usuario" |
+
+## 📄 Control de saltos de página
+
+Por defecto, solo las secciones de **nivel 1** (capítulos) inician en página nueva.
+Las subsecciones fluyen de forma continua para evitar páginas con poco contenido.
+
+### Configuración global en `project.yml`
+
+```yaml
+pdf:
+  page_break_levels: [1]          # 🔷 DEFAULT: solo nivel 1
+  # page_break_levels: [1, 2]     # Nivel 1 y 2 tienen page break
+  # page_break_levels: [1, 2, 3]  # Todos los niveles (comportamiento anterior)
+```
+
+### Control por sección (frontmatter)
+
+Puedes forzar o suprimir un page break en una sección específica agregando `page_break` en su frontmatter:
+
+```markdown
+---
+page_break: true    # Fuerza page break antes de esta sección
+---
+
+## Mi Sección Especial
+```
+
+```markdown
+---
+page_break: false   # Suprime page break, aunque sea nivel 1
+---
+
+## Otra Sección
+```
+
+### Precedencia
+
+| Prioridad | Regla | Origen |
+|-----------|-------|--------|
+| 1 (máxima) | `page_break: true` en frontmatter | Sección individual |
+| 2 | `page_break: false` en frontmatter | Sección individual |
+| 3 | Nivel está en `page_break_levels` | `project.yml` |
+| 4 (default) | Solo nivel 1 | Comportamiento por defecto |
 
 ---
 
