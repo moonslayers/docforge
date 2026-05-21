@@ -3,7 +3,7 @@ import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mdToPdf } from 'md-to-pdf';
 import type { PdfResult, ProjectConfig } from '../types/index.js';
-import type { CaseSections } from './section-loader.js';
+import type { CaseSections, SectionInfo } from './section-loader.js';
 import { buildBrandCSS } from './template.js';
 import { replacePlaceholders } from './placeholders.js';
 import { buildFrontmatter } from './metadata.js';
@@ -12,6 +12,39 @@ function parseMargin(marginStr: string): { top: string; right: string; bottom: s
   const parts = marginStr.split(/\s+/);
   const [top = '20mm', right = '15mm', bottom = '20mm', left = '15mm'] = parts;
   return { top, right, bottom, left };
+}
+
+/**
+ * Genera un anchor único para una sección usando su jerarquía + título.
+ * Ej: order [1, 1], title "Requisitos" → "1-1-requisitos"
+ */
+function buildAnchor(section: { order: number[]; title: string }): string {
+  const prefix = section.order.join('-');
+  const slug = section.title
+    .toLowerCase()
+    .replace(/[^a-z0-9áéíóúüñ]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${prefix}-${slug}`;
+}
+
+/**
+ * Determina si una sección debe comenzar en una página nueva.
+ *
+ * Orden de precedencia:
+ * 1. frontmatter.page_break = true  → fuerza page break
+ * 2. frontmatter.page_break = false → suprime page break
+ * 3. section.depth está en page_break_levels (default: [1]) → page break
+ * 4. Sino → no page break
+ */
+function shouldBreakBefore(section: SectionInfo, projectConfig: ProjectConfig): boolean {
+  // 1. Override explícito por frontmatter
+  const fmPageBreak = section.frontmatter?.['page_break'];
+  if (fmPageBreak === true) return true;
+  if (fmPageBreak === false) return false;
+
+  // 2. Configuración por niveles
+  const breakLevels = projectConfig.pdf?.page_break_levels ?? [1];
+  return breakLevels.includes(section.depth);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -57,17 +90,16 @@ function generateCoverHtml(
 /**
  * Genera el índice a partir de los títulos de las secciones.
  */
-function generateTocHtml(sections: { title: string }[]): string {
+function generateTocHtml(sections: SectionInfo[]): string {
   if (sections.length === 0) return '';
 
   let toc = '<div class="toc">\n\n## Índice\n\n';
   
-  for (let i = 0; i < sections.length; i++) {
-    const anchor = sections[i].title
-      .toLowerCase()
-      .replace(/[^a-z0-9áéíóúüñ]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    toc += `${i + 1}. [${sections[i].title}](#${anchor})\n`;
+  for (const section of sections) {
+    const level = section.depth;
+    const numberStr = section.order.join('.');
+    const anchor = buildAnchor(section);
+    toc += `<p class="toc-level-${level}"><a href="#${anchor}">${numberStr}. ${section.title}</a></p>\n`;
   }
 
   toc += '\n</div>\n\n<div style="page-break-before: always;"></div>\n\n';
@@ -133,21 +165,35 @@ export async function generatePdf(
     }
 
     // 4b. Índice generado automáticamente
-    fullContent += generateTocHtml(caseSections.sections.map(s => ({ title: s.title })));
+    fullContent += generateTocHtml(caseSections.sections);
 
-    // 4c. Secciones con saltos de página
+    // 4c. Secciones con saltos de página inteligentes
     for (let i = 0; i < caseSections.sections.length; i++) {
       const section = caseSections.sections[i];
       let sectionContent = section.content;
+
+      // Prepender numbering jerárquico al primer heading ## (si no lo tiene ya)
+      const numbering = section.order.join('.');
+      sectionContent = sectionContent.replace(
+        /^(##\s+)(.*)$/m,
+        (match, headingMark, headingText) => {
+          // Evitar duplicar si ya tiene el numbering
+          if (headingText.startsWith(numbering + ' ')) return match;
+          return `${headingMark}${numbering} ${headingText}`;
+        }
+      );
 
       // Aplicar placeholders al contenido de la sección
       sectionContent = replacePlaceholders(sectionContent, projectConfig, caseMeta);
 
       fullContent += sectionContent;
 
-      // Salto de página entre secciones (excepto después de la última)
+      // Salto de página condicional: solo si la SIGUIENTE sección debe empezar en página nueva
       if (i < caseSections.sections.length - 1) {
-        fullContent += '\n\n<div style="page-break-before: always;"></div>\n\n';
+        const nextSection = caseSections.sections[i + 1];
+        if (shouldBreakBefore(nextSection, projectConfig)) {
+          fullContent += '\n\n<div style="page-break-before: always;"></div>\n\n';
+        }
       }
     }
 

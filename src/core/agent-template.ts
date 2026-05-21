@@ -32,8 +32,10 @@ ${config.projectName}/
 └── casos/                ← Aquí viven los manuales de usuario
     └── <nombre-del-caso>/
         ├── cover.md            ← Opcional. Portada personalizada.
-        ├── 01-primer-paso.md   ← Secciones con prefijo numérico
-        ├── 02-segundo-paso.md
+        ├── 01-primer-paso.md   ← Sección nivel 1
+        ├── 01.01-subpaso.md    ← Subsección nivel 2
+        ├── 01.01.01-detalle.md ← Sub-subsección nivel 3
+        ├── 02-segundo-paso.md  ← Sección nivel 1
         └── images/             ← Capturas de pantalla
 \`\`\`
 
@@ -53,11 +55,16 @@ Sigue estos pasos:
 
    \`\`\`bash
    touch casos/nombre-del-caso/01-introduccion.md
-   touch casos/nombre-del-caso/02-paso-1.md
-   touch casos/nombre-del-caso/03-paso-2.md
+   touch casos/nombre-del-caso/01.01-requisitos.md
+   touch casos/nombre-del-caso/01.02-paso-1.md
+   touch casos/nombre-del-caso/02-configuracion.md
    \`\`\`
 
-   El prefijo numérico de 2 dígitos define el orden de las secciones.
+   - **Nivel 1**: \`NN-nombre.md\` (ej: \`01-introduccion.md\`)
+   - **Nivel 2**: \`NN.NN-nombre.md\` (ej: \`01.01-requisitos.md\`)
+   - **Nivel 3**: \`NN.NN.NN-nombre.md\` (ej: \`01.01.01-detalle.md\`)
+   
+   El prefijo numérico define el orden y la jerarquía. Los puntos (\`.\`) indican subniveles.
 
 3. **Agrega las capturas de pantalla** en la carpeta \`images/\`.
 
@@ -91,10 +98,92 @@ Antes de empezar necesitas:
 
 - ✅ El **primer \`##\`** de cada archivo se usa como título en el índice
 - ✅ \`case_title\` en el frontmatter de la **primera sección** (01-*.md) define el título de la portada automática
+- ✅ \`page_break: true/false\` en el frontmatter controla saltos de página por sección
 - ✅ Si no hay \`case_title\` en ninguna sección, la portada usará el **nombre de la carpeta** del caso
 - ✅ Los \`###\` y \`#\` no se usan para el índice (solo \`##\`)
 - ✅ Las imágenes van con ruta relativa: \`![texto](./images/archivo.png)\`
 - ✅ No necesitas portada, ni índice, ni saltos de página — todo lo genera docforge
+
+---
+
+## 📂 Secciones jerárquicas (subniveles)
+
+Puedes crear estructura jerárquica con subsecciones usando puntos en el prefijo numérico:
+
+\`\`\`
+casos/mi-manual/
+├── 01-introduccion.md          ← "1. Introducción"
+├── 01.01-requisitos.md         ← "1.1 Requisitos"
+├── 01.01.01-windows.md         ← "1.1.1 Windows"
+├── 01.02-instalacion.md        ← "1.2 Instalación"
+├── 02-configuracion.md         ← "2. Configuración"
+├── 02.01-basico.md             ← "2.1 Básico"
+└── 02.01.01-red.md             ← "2.1.1 Red"
+\`\`\`
+
+### Reglas:
+
+- **Nivel 1**: \`NN-nombre.md\` — capítulos principales
+- **Nivel 2**: \`NN.NN-nombre.md\` — subsecciones
+- **Nivel 3**: \`NN.NN.NN-nombre.md\` — sub-subsecciones
+- **Máximo recomendado**: 3 niveles de profundidad
+
+### ¿Qué genera automáticamente?
+
+- ✅ **TOC jerárquico** con indentación por nivel
+- ✅ **Numbering automático**: 1, 1.1, 1.1.1, 1.2, 2, 2.1...
+- ✅ **Anclas únicas** para cada sección
+
+---
+
+## 📄 Control de saltos de página
+
+Por defecto, solo las secciones de **nivel 1** (capítulos) inician en página nueva.
+Las subsecciones fluyen de forma continua.
+
+### Configuración global en \`project.yml\`
+
+Puedes cambiar qué niveles tienen page break:
+
+\`\`\`yaml
+pdf:
+  page_break_levels: [1]          # 🔷 DEFAULT: solo nivel 1
+  # page_break_levels: [1, 2]     # Nivel 1 y 2 tienen page break
+  # page_break_levels: [1, 2, 3]  # Todos los niveles (comportamiento antiguo)
+\`\`\`
+
+### Control por sección (frontmatter)
+
+Puedes forzar o suprimir un page break en UNA sección específica:
+
+\`\`\`markdown
+---
+page_break: true    # Fuerza page break antes de esta sección
+---
+
+## Mi Sección Especial
+
+...
+\`\`\`
+
+\`\`\`markdown
+---
+page_break: false   # Suprime page break, aunque sea nivel 1
+---
+
+## Otra Sección
+
+...
+\`\`\`
+
+### Resumen de precedencia:
+
+| Prioridad | Regla | Origen |
+|-----------|-------|--------|
+| 1 (máxima) | \`page_break: true\` en frontmatter | Sección individual |
+| 2 | \`page_break: false\` en frontmatter | Sección individual |
+| 3 | Nivel está en \`page_break_levels\` | \`project.yml\` |
+| 4 (default) | Solo nivel 1 | Built-in |
 
 ---
 
@@ -168,6 +257,7 @@ pdf:
   status: "Borrador"
   page_size: A4
   margins: "20mm 15mm 20mm 15mm"
+  page_break_levels: [1]       # ← NUEVO: niveles que inician página
 
 brand:
   primary: "#1a365d"      # Títulos y encabezados de tabla
@@ -186,9 +276,10 @@ brand:
 
 1. **Un tema por sección**: Cada archivo \`NN-*.md\` debe cubrir un tema específico
 2. **Títulos descriptivos**: El primer \`##\` de cada archivo es el que aparece en el índice
-3. **Imágenes con contexto**: Nombra las imágenes descriptivamente (\`paso-3-crear-convenio.png\`)
-4. **Notas importantes**: Usa Markdown estándar, no HTML
-5. **Portada solo si es necesario**: La automática suele ser suficiente
+3. **Usa subsecciones con moderación**: 2-3 niveles de profundidad es suficiente
+4. **Imágenes con contexto**: Nombra las imágenes descriptivamente (\`paso-3-crear-convenio.png\`)
+5. **Notas importantes**: Usa Markdown estándar, no HTML
+6. **Portada solo si es necesario**: La automática suele ser suficiente
 
 ---
 
@@ -210,16 +301,19 @@ docforge list cases ${config.projectName}
 
 ---
 
-## ✅ Ejemplo completo
+## ✅ Ejemplo completo con subsecciones
 
 \`\`\`
-casos/mi-caso/
+casos/mi-manual/
 ├── 01-requisitos.md
-├── 02-paso-1-configurar.md
-├── 03-paso-2-ejecutar.md
+├── 01.01-windows.md
+├── 01.02-macos.md
+├── 02-configuracion.md
+├── 02.01-basico.md
+├── 02.02-avanzado.md
 └── images/
-    ├── paso-1-pantalla.png
-    └── paso-2-resultado.png
+    ├── pantalla-inicio.png
+    └── pantalla-config.png
 \`\`\`
 
 **01-requisitos.md:**
@@ -230,21 +324,26 @@ casos/mi-caso/
 - Tener permisos de administrador
 \`\`\`
 
-**02-paso-1-configurar.md:**
+**01.01-windows.md:**
 \`\`\`markdown
-## Paso 1: Configurar el sistema
+## Requisitos para Windows
 
-Accede al menú de configuración...
+- Windows 10 o superior
+- 8GB de RAM mínimo
+\`\`\`
 
-![Pantalla de configuración](./images/paso-1-pantalla.png)
+**02-configuracion.md:**
+\`\`\`markdown
+## Configuración del Sistema
+
+Sigue estos pasos para configurar...
 \`\`\`
 
 Y al ejecutar \`docforge generate\`, obtienes un PDF con:
-1. ✅ Portada automática con los datos del proyecto
-2. ✅ Índice generado con "Requisitos Previos" y "Paso 1: Configurar el sistema"
-3. ✅ Saltos de página entre cada sección
-4. ✅ Colores institucionales desde \`project.yml\`
-
-Sin escribir una sola línea de HTML. 🚀
+1. ✅ Portada automática
+2. ✅ Índice jerárquico: 1, 1.1, 1.2, 2, 2.1, 2.2
+3. ✅ Saltos de página solo entre capítulos (nivel 1)
+4. ✅ Números de sección en los encabezados
+5. ✅ Colores institucionales desde \`project.yml\`
 `;
 }

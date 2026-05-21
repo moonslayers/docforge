@@ -29,6 +29,11 @@ export interface PdfDefaults {
   margins?: string;
   font_size?: string;
   line_height?: number;
+  /** Niveles jerárquicos que inician en página nueva.
+   *  Default: [1] (solo nivel 1 tiene page break).
+   *  Ej: [1, 2] para que nivel 1 y 2 tengan page break.
+   *  Cada sección puede sobrescribir con page_break: true/false en frontmatter. */
+  page_break_levels?: number[];
 }
 
 // ─── Tech Stack ───────────────────────────────────────────────

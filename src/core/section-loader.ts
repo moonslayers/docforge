@@ -26,8 +26,11 @@ export interface SectionInfo {
   content: string;
   /** Frontmatter YAML parseado (si tiene) */
   frontmatter: Record<string, unknown>;
-  /** Número de orden (del prefijo NN) */
-  order: number;
+  /** Jerarquía numérica derivada del prefijo del archivo.
+   *  Ej: "01-intro.md" → [1], "01.01-sub.md" → [1, 1], "01.02.01-det.md" → [1, 2, 1] */
+  order: number[];
+  /** Profundidad/nivel jerárquico (order.length) */
+  depth: number;
 }
 
 /**
@@ -43,12 +46,16 @@ export interface CaseSections {
 }
 
 /**
- * Extrae el prefijo numérico de un nombre de archivo.
- * Ej: "01-requisitos.md" → 1, "12-paso-final.md" → 12
+ * Extrae el prefijo jerárquico de un nombre de archivo.
+ * Ej: "01-intro.md" → [1]
+ *     "01.01-sub.md" → [1, 1]
+ *     "01.02.01-detalle.md" → [1, 2, 1]
+ *     "cover.md" → [999]
  */
-function extractOrder(fileName: string): number {
-  const match = fileName.match(/^(\d+)/);
-  return match ? parseInt(match[1], 10) : 999;
+function extractOrder(fileName: string): number[] {
+  const match = fileName.match(/^(\d+(?:\.\d+)*)/);
+  if (!match) return [999];
+  return match[1].split('.').map(Number);
 }
 
 /**
@@ -66,6 +73,7 @@ function extractTitle(content: string): string {
 function readSectionFile(filePath: string, fileName: string): SectionInfo {
   const raw = readFileSync(filePath, 'utf-8');
   const parsed = matter(raw);
+  const order = extractOrder(fileName);
 
   return {
     fileName,
@@ -73,7 +81,8 @@ function readSectionFile(filePath: string, fileName: string): SectionInfo {
     title: parsed.data?.section_title as string || extractTitle(parsed.content),
     content: parsed.content,
     frontmatter: parsed.data as Record<string, unknown> || {},
-    order: extractOrder(fileName),
+    order,
+    depth: order.length,
   };
 }
 
@@ -112,6 +121,18 @@ export function loadCaseSections(caseDir: string): CaseSections {
       sections.push(readSectionFile(filePath, file));
     }
   }
+
+  // Sort numérico por jerarquía para garantizar orden correcto
+  // más robusto que el sort alfabético (tolera padding inconsistente)
+  sections.sort((a, b) => {
+    const maxLen = Math.max(a.order.length, b.order.length);
+    for (let i = 0; i < maxLen; i++) {
+      const aVal = a.order[i] ?? -1;
+      const bVal = b.order[i] ?? -1;
+      if (aVal !== bVal) return aVal - bVal;
+    }
+    return 0;
+  });
 
   if (sections.length === 0) {
     throw new Error(

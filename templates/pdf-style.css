@@ -199,3 +199,51 @@ pre code {
 .page-break {
   page-break-before: always;
 }
+
+/* TOC jerárquico para secciones multi-nivel */
+.toc-level-1 {
+  margin-left: 0;
+  font-weight: 700;
+  font-size: 11pt;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.toc-level-2 {
+  margin-left: 24px;
+  font-size: 10.5pt;
+  margin-top: 3px;
+  margin-bottom: 2px;
+}
+
+.toc-level-3 {
+  margin-left: 48px;
+  font-size: 10pt;
+  margin-top: 2px;
+  margin-bottom: 1px;
+}
+
+.toc-level-4 {
+  margin-left: 72px;
+  font-size: 9.5pt;
+  color: var(--color-text, #2d3748);
+  opacity: 0.85;
+  margin-top: 2px;
+  margin-bottom: 1px;
+}
+
+.toc-level-5,
+.toc-level-6 {
+  margin-left: 96px;
+  font-size: 9pt;
+  color: var(--color-text, #2d3748);
+  opacity: 0.75;
+  margin-top: 1px;
+  margin-bottom: 1px;
+}
+
+/* Párrafos del TOC: resetear margin */
+.toc p {
+  margin: 0;
+  padding: 0;
+}
