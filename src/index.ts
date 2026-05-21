@@ -5,6 +5,7 @@
  * 
  * Uso:
  *   docforge generate [project] [options]    Generar PDF(s)
+ *   docforge render [project] [options]      Generar imágenes desde HTML
  *   docforge init <project-name> [options]    Crear nuevo proyecto
  *   docforge list [projects|cases] [project]  Listar proyectos/casos
  *   docforge config [action] [key] [value]    Gestionar configuración global
@@ -17,6 +18,7 @@ import { join, resolve, relative } from 'node:path';
 import { loadProjectConfig, listProjects, listProjectCases, loadGlobalConfig, saveGlobalConfig, resolveProjectsDir } from './core/config.js';
 import { resolveCasePaths, loadCaseByPath, parseProjectCaseNotation } from './core/resolver.js';
 import { generatePdf, generateAllPdfs } from './core/pdf.js';
+import { renderProjectCases } from './core/capture.js';
 
 import { logger } from './utils/logger.js';
 import { detectProjectFromCwd } from './core/detect.js';
@@ -159,6 +161,128 @@ program
         } else {
           logger.warn(`${successCount} generados, ${failCount} fallos`);
         }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const cleanMessage = message.replace(/\/home\/[^/\s]+\/[^\s]*/g, (match) => {
+        try { return showRelativePath(match); } catch { return match; }
+      });
+      logger.error(cleanMessage);
+      process.exit(1);
+    }
+  });
+
+// ─── Comando: render ────────────────────────────────────────
+
+program
+  .command('render')
+  .description('Generar imágenes PNG desde archivos HTML en html/')
+  .argument('[project]', 'Nombre del proyecto o ruta (ej: credilink, credilink:mi-caso)')
+  .option('-c, --case <name>', 'Caso específico a procesar')
+  .option('-a, --all', 'Procesar todos los casos del proyecto')
+  .option('-p, --padding <padding>', 'Padding alrededor del div capturado (default: "20px")')
+  .option('--scale <n>', 'Device scale factor (default: 2)', parseFloat)
+  .option('--bg-color <color>', 'Color de fondo (default: "white")')
+  .option('--css <path>', 'Ruta a archivo CSS personalizado')
+  .option('--strict', 'Fallar si hay múltiples divs en lugar de capturar el primero')
+  .option('--projects-dir <dir>', 'Directorio donde buscar proyectos (default: ./projects)')
+  .option('--debug', 'Modo debug con logs detallados')
+  .action(async (project: string | undefined, options: Record<string, unknown>) => {
+    logger.header();
+
+    const opts = options as {
+      case?: string;
+      all?: boolean;
+      padding?: string;
+      scale?: number;
+      bgColor?: string;
+      css?: string;
+      strict?: boolean;
+      projectsDir?: string;
+      debug?: boolean;
+    };
+
+    if (opts.debug) {
+      process.env.DEBUG = 'true';
+    }
+
+    try {
+      let resolvedProject = project;
+      let resolvedCase = opts.case;
+
+      // ── Sin argumentos: autodetección desde el CWD ──
+      if (!resolvedProject) {
+        const detected = detectProjectFromCwd();
+        
+        if (!detected) {
+          logger.error('No se detectó un proyecto aquí.');
+          logger.info('Asegúrate de estar dentro de la carpeta de un proyecto (con project.yml).');
+          logger.info('');
+          logger.info('Uso explícito:');
+          logger.info('  docforge render <proyecto> [--case <caso> | --all]');
+          logger.info('');
+          logger.info('Ejemplos:');
+          logger.info('  docforge render credilink --all');
+          logger.info('  docforge render credilink:mi-caso');
+          process.exit(1);
+        }
+
+        resolvedProject = detected.projectPath;
+        resolvedCase = detected.caseName || opts.case;
+
+        logger.info(`📍 Detectado proyecto: ${detected.projectName}`);
+        if (resolvedCase) logger.info(`📁 Detectado caso: ${resolvedCase}`);
+      }
+
+      // ── Soporte para sintaxis proyecto:caso ──
+      if (resolvedProject && !resolvedCase) {
+        const parsed = parseProjectCaseNotation(resolvedProject);
+        if (parsed) {
+          resolvedProject = parsed.project;
+          resolvedCase = parsed.case;
+        }
+      }
+
+      if (!resolvedProject) {
+        logger.error('No se pudo resolver el proyecto.');
+        process.exit(1);
+      }
+
+      const showProject = resolvedProject.includes('/') ? showRelativePath(resolvedProject) : resolvedProject;
+      logger.info(`🔧 Proyecto: ${showProject}`);
+      if (resolvedCase) logger.info(`📁 Caso: ${resolvedCase}`);
+
+      logger.info('Renderizando HTMLs a imágenes...');
+
+      const results = await renderProjectCases(resolvedProject, resolvedCase, {
+        padding: opts.padding || '20px',
+        scale: opts.scale || 2,
+        bgColor: opts.bgColor || 'white',
+        css: opts.css,
+        strict: opts.strict,
+        projectsDir: opts.projectsDir,
+        debug: opts.debug,
+      });
+
+      // ── Resumen ──
+      let totalSuccess = 0;
+      let totalFail = 0;
+
+      for (const group of results) {
+        for (const r of group.results) {
+          if (r.success) totalSuccess++;
+          else totalFail++;
+        }
+      }
+
+      logger.separator();
+      if (totalSuccess > 0 && totalFail === 0) {
+        logger.success(`${totalSuccess} imagen(es) generada(s) correctamente`);
+      } else if (totalFail > 0) {
+        logger.warn(`${totalSuccess} generadas, ${totalFail} fallos`);
+      } else {
+        logger.info('No se encontraron archivos HTML para procesar.');
+        logger.info('Crea archivos .html en la carpeta html/ dentro de tu caso.');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

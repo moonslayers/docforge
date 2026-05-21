@@ -183,7 +183,7 @@ export type LogLevel = 'info' | 'warn' | 'error' | 'success' | 'debug';
 
 // ─── CLI Commands ─────────────────────────────────────────────
 
-export type CliCommand = 'generate' | 'init' | 'list';
+export type CliCommand = 'generate' | 'init' | 'list' | 'render';
 
 // ─── Global Config (desde ~/.config/docforge/config.json) ─────
 
@@ -199,4 +199,67 @@ export interface DocforgeGlobalConfig {
 
   /** Permite propiedades adicionales */
   [key: string]: unknown;
+}
+
+// ─── Render/Capture Options ─────────────────────────────────────
+
+/**
+ * Opciones para el comando `docforge render`.
+ */
+export interface RenderOptions {
+  /** Nombre o ruta del proyecto */
+  project?: string;
+
+  /** Nombre del caso (omitir para generar todos) */
+  case?: string;
+
+  /** Directorio de salida para las imágenes (default: images/ dentro del caso) */
+  output?: string;
+
+  /** Padding alrededor del div capturado. Soporta CSS: "20px", "10px 20px", "10px 5px 15px 20px" */
+  padding?: string;
+
+  /** Device scale factor (1 = normal, 2 = retina) */
+  scale?: number;
+
+  /** Color de fondo del viewport */
+  bgColor?: string;
+
+  /** Ruta a archivo CSS personalizado para inyectar */
+  css?: string;
+
+  /** Si true, falla si hay múltiples divs en lugar de capturar el primero */
+  strict?: boolean;
+
+  /** Directorio donde buscar proyectos */
+  projectsDir?: string;
+
+  /** Modo debug */
+  debug?: boolean;
+
+  /** Generar imágenes para todos los casos del proyecto */
+  all?: boolean;
+}
+
+/**
+ * Resultado de la captura de un archivo HTML individual.
+ */
+export interface RenderResult {
+  /** Ruta al archivo HTML fuente */
+  htmlFile: string;
+
+  /** Ruta al archivo de imagen generado */
+  imageFile: string;
+
+  /** Si la captura fue exitosa */
+  success: boolean;
+
+  /** Dimensiones de la imagen capturada en píxeles */
+  dimensions?: {
+    width: number;
+    height: number;
+  };
+
+  /** Mensaje de error si falló */
+  error?: string;
 }

@@ -39,6 +39,9 @@ docforge generate mi-proyecto --case nombre-del-caso
 # Sintaxis abreviada proyecto:caso
 docforge generate mi-proyecto:nombre-del-caso
 
+# Renderizar HTMLs de un caso a imágenes PNG
+docforge render mi-proyecto --case nombre-del-caso
+
 # Listar proyectos y casos
 docforge list projects
 docforge list cases mi-proyecto
@@ -78,6 +81,71 @@ docforge generate
 cd ~/projects/credilink/casos/liquidar-anticipadamente
 docforge generate
 ```
+
+---
+
+### `docforge render [project]`
+
+Genera imágenes PNG a partir de archivos HTML. Cada archivo HTML en `html/`
+se renderiza con Puppeteer y se guarda como PNG en `images/`.
+
+| Sin argumentos | Con proyecto |
+|---|---|
+| ✅ **Autodetección**: igual que `generate`, detecta el proyecto/caso desde el CWD | `docforge render credilink --all` |
+
+**Flags:**
+
+| Opción | Descripción |
+|---|---|
+| `-c, --case <name>` | Renderizar solo un caso específico |
+| `-a, --all` | Renderizar todos los casos del proyecto |
+| `-p, --padding <px>` | Padding alrededor del div capturado (default: "20px") |
+| `--scale <n>` | Device scale factor (default: 2, retina) |
+| `--bg-color <color>` | Color de fondo del viewport (default: "white") |
+| `--css <path>` | Ruta a archivo CSS personalizado para inyectar |
+| `--strict` | Fallar si hay múltiples divs (default: captura el primero) |
+| `--projects-dir <dir>` | Directorio donde buscar proyectos |
+| `--debug` | Modo debug con logs detallados |
+
+**Ejemplos:**
+
+```bash
+# Renderizar todos los HTMLs de un proyecto
+docforge render credilink --all
+
+# Renderizar un caso específico
+docforge render credilink --case mi-caso
+
+# Sintaxis abreviada
+docforge render credilink:mi-caso
+
+# Con padding personalizado
+docforge render credilink:mi-caso --padding 30px
+
+# Escala normal (no retina) para imágenes más livianas
+docforge render credilink:mi-caso --scale 1
+```
+
+**Formato de los archivos HTML:**
+
+Cada archivo HTML en `casos/<nombre>/html/` debe contener idealmente **1 solo `<div>`**
+con el contenido a capturar. El screenshot se toma sobre ese div con un padding
+extra (configurable) para que la imagen no quede al ras del borde.
+
+```
+casos/mi-caso/
+├── html/
+│   ├── diagrama-flujo.html      ← 1 div con el diagrama
+│   └── interfaz-login.html      ← 1 div con la interfaz
+├── images/
+│   ├── diagrama-flujo.png       ← Generado por docforge render
+│   └── interfaz-login.png       ← Generado por docforge render
+├── 01-seccion.md                ← Usa ![img](./images/diagrama-flujo.png)
+└── ...
+```
+
+Los HTMLs deben ser autónomos (CSS inline o en etiqueta `<style>`).
+Opcionalmente puedes usar `--css` para inyectar estilos adicionales.
 
 ---
 
@@ -212,6 +280,7 @@ mi-proyecto/
         ├── 02-segundo-paso.md
         ├── 03-tercer-paso.md
         └── images/             ← Capturas de pantalla
+        └── html/               ← HTMLs para generar imágenes
 ```
 
 El prefijo numérico de 2 dígitos define el orden de las secciones en el PDF.

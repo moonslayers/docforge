@@ -36,7 +36,8 @@ ${config.projectName}/
         ├── 01.01-subpaso.md    ← Subsección nivel 2
         ├── 01.01.01-detalle.md ← Sub-subsección nivel 3
         ├── 02-segundo-paso.md  ← Sección nivel 1
-        └── images/             ← Capturas de pantalla
+        ├── html/               ← HTMLs para generar imágenes con docforge render
+        └── images/             ← Capturas de pantalla e imágenes generadas
 \`\`\`
 
 ---
@@ -64,11 +65,48 @@ Sigue estos pasos:
    - **Nivel 2**: \`NN.NN-nombre.md\` (ej: \`01.01-requisitos.md\`)
    - **Nivel 3**: \`NN.NN.NN-nombre.md\` (ej: \`01.01.01-detalle.md\`)
    
-   El prefijo numérico define el orden y la jerarquía. Los puntos (\`.\`) indican subniveles.
+    El prefijo numérico define el orden y la jerarquía. Los puntos (\`.\`) indican subniveles.
 
-3. **Agrega las capturas de pantalla** en la carpeta \`images/\`.
+3. **Crea elementos visuales** como archivos HTML en la carpeta \`html/\`:
 
-4. **Genera el PDF** ejecutando:
+   \`\`\`bash
+   mkdir -p casos/nombre-del-caso/html
+   \`\`\`
+
+   Cada archivo HTML debe contener **1 solo \`<div>\`** con el elemento visual
+   (interfaz, diagrama, flujo, etc.). Pon el CSS inline o en una etiqueta \`<style>\`
+   dentro del mismo archivo.
+
+   Ejemplo \`html/diagrama-flujo.html\`:
+   
+   \`\`\`html
+   <div style="background: #f0f4f8; padding: 20px; border-radius: 8px; width: 600px;">
+     <h3 style="color: #1a365d;">Flujo de Aprobación</h3>
+     <ol>
+       <li>Solicitud ingresada</li>
+       <li>Revisión de documentos</li>
+       <li>Aprobación del supervisor</li>
+       <li>Notificación al solicitante</li>
+     </ol>
+   </div>
+   \`\`\`
+
+4. **Genera las imágenes** a partir de los HTMLs:
+
+   \`\`\`bash
+   docforge render
+   \`\`\`
+
+   Esto creará automáticamente \`images/diagrama-flujo.png\` con el screenshot
+   del div, añadiendo un padding extra para que no quede al ras del borde.
+
+5. **Agrega las imágenes** en tus secciones Markdown con rutas relativas:
+
+   \`\`\`markdown
+   ![Diagrama de flujo](./images/diagrama-flujo.png)
+   \`\`\`
+
+6. **Genera el PDF** ejecutando:
 
    \`\`\`bash
    docforge generate
@@ -102,6 +140,7 @@ Antes de empezar necesitas:
 - ✅ Si no hay \`case_title\` en ninguna sección, la portada usará el **nombre de la carpeta** del caso
 - ✅ Los \`###\` y \`#\` no se usan para el índice (solo \`##\`)
 - ✅ Las imágenes van con ruta relativa: \`![texto](./images/archivo.png)\`
+- ✅ Para crear imágenes desde HTML, usa \`docforge render\`: crea HTMLs en \`html/\`, genera PNGs en \`images/\`
 - ✅ No necesitas portada, ni índice, ni saltos de página — todo lo genera docforge
 
 ---
@@ -229,6 +268,62 @@ El \`cover.md\` reemplaza totalmente la portada automática. Puedes usar Markdow
 
 ---
 
+## 🖼️ Generar imágenes desde HTML con \`docforge render\`
+
+Puedes crear elementos visuales (interfaces, diagramas, flujos) como archivos HTML
+y convertirlos automáticamente a imágenes PNG.
+
+### Flujo recomendado
+
+1. Crea un archivo HTML en \`casos/<nombre>/html/\` con **1 solo \`<div>\`** que contenga tu elemento visual
+2. Ejecuta \`docforge render\` para convertirlo a PNG
+3. Referencia la imagen generada en tus secciones Markdown
+
+### Ejemplo
+
+\`\`\`
+casos/mi-manual/
+├── html/
+│   ├── interfaz-login.html     ← 1 div con la interfaz de login
+│   └── diagrama-flujo.html     ← 1 div con el diagrama
+├── images/
+│   ├── interfaz-login.png      ← Generado por docforge render
+│   └── diagrama-flujo.png      ← Generado por docforge render
+├── 01-introduccion.md          ← Usa ![Login](./images/interfaz-login.png)
+└── ...
+\`\`\`
+
+### Reglas del formato HTML
+
+- ✅ **1 solo \`<div>\`** por archivo (si hay varios, se captura el primero)
+- ✅ El CSS debe ir **inline** o en etiqueta \`<style>\` dentro del mismo HTML
+- ✅ El div debe tener **dimensiones visibles** (width/height o contenido que las defina)
+- ✅ El screenshot incluye **padding** (default 20px) para que no quede al ras del borde
+- ⚠️ Los HTMLs con múltiples divs generan una advertencia (usa \`--strict\` para fallar)
+
+### Recomendaciones para agentes
+
+Cuando crees documentación para un proceso que incluya pasos visuales
+(interfaces de sistema, formularios, diagramas de flujo, tablas de datos):
+
+1. **Siempre que sea posible, crea el elemento visual como HTML** en \`html/\`
+   en lugar de sugerir capturas de pantalla reales. Los HTMLs son:
+   - Más rápidos de crear y modificar
+   - Consistentes (mismos colores, fuentes, estilos)
+   - No dependen de datos reales o entornos de prueba
+   - Se ven profesionales en el PDF
+
+2. **Usa los colores institucionales** del proyecto (definidos en \`project.yml → brand\`)
+   para mantener consistencia visual.
+
+3. **Nombra los archivos descriptivamente**: \`paso-3-formulario-creacion.html\`,
+   \`tabla-resultados-busqueda.html\`, etc.
+
+4. **Después de crear los HTMLs, ejecuta \`docforge render\`** para generar las imágenes,
+   y luego \`docforge generate\` para producir el PDF final.
+
+---
+
 ## 🔤 Placeholders disponibles
 
 Usa \`{{variable}}\` en el contenido. Se reemplazan automáticamente al generar el PDF:
@@ -277,9 +372,10 @@ brand:
 1. **Un tema por sección**: Cada archivo \`NN-*.md\` debe cubrir un tema específico
 2. **Títulos descriptivos**: El primer \`##\` de cada archivo es el que aparece en el índice
 3. **Usa subsecciones con moderación**: 2-3 niveles de profundidad es suficiente
-4. **Imágenes con contexto**: Nombra las imágenes descriptivamente (\`paso-3-crear-convenio.png\`)
-5. **Notas importantes**: Usa Markdown estándar, no HTML
-6. **Portada solo si es necesario**: La automática suele ser suficiente
+4. **HTML antes que capturas reales**: Para elementos visuales, crea HTMLs en \`html/\` y genera imágenes con \`docforge render\`. Es más rápido, consistente y profesional que tomar screenshots reales.
+5. **Imágenes con contexto**: Nombra las imágenes descriptivamente (\`paso-3-crear-convenio.png\`)
+6. **Notas importantes**: Usa Markdown estándar, no HTML
+7. **Portada solo si es necesario**: La automática suele ser suficiente
 
 ---
 
@@ -291,6 +387,15 @@ docforge generate
 
 # Generar un caso específico
 docforge generate ${config.projectName} --case nombre-del-caso
+
+# Renderizar HTMLs de un caso a imágenes PNG
+docforge render ${config.projectName} --case nombre-del-caso
+
+# Renderizar HTMLs de todos los casos del proyecto
+docforge render ${config.projectName} --all
+
+# Renderizar con padding personalizado
+docforge render ${config.projectName}:nombre-del-caso --padding 30px
 
 # Ver los proyectos disponibles
 docforge list projects
@@ -311,9 +416,11 @@ casos/mi-manual/
 ├── 02-configuracion.md
 ├── 02.01-basico.md
 ├── 02.02-avanzado.md
+├── html/
+│   └── pantalla-config.html       ← 1 div con la interfaz de configuración
 └── images/
-    ├── pantalla-inicio.png
-    └── pantalla-config.png
+    ├── pantalla-inicio.png         ← Captura real (si es necesaria)
+    └── pantalla-config.png         ← Generado con docforge render
 \`\`\`
 
 **01-requisitos.md:**
@@ -339,11 +446,33 @@ casos/mi-manual/
 Sigue estos pasos para configurar...
 \`\`\`
 
-Y al ejecutar \`docforge generate\`, obtienes un PDF con:
+**html/pantalla-config.html:**
+\`\`\`html
+<div style="background: #fff; border: 1px solid #cbd5e0; border-radius: 8px; padding: 24px; max-width: 600px; font-family: Arial, sans-serif;">
+  <h3 style="color: #1a365d; margin-top: 0;">Configuración del Sistema</h3>
+  <form>
+    <label style="display: block; margin-bottom: 8px; color: #2d3748;">Servidor:</label>
+    <input type="text" value="localhost:8080" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; margin-bottom: 16px;">
+    <label style="display: block; margin-bottom: 8px; color: #2d3748;">Puerto:</label>
+    <input type="text" value="3306" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; margin-bottom: 16px;">
+    <button style="background: #1a365d; color: white; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer;">Conectar</button>
+  </form>
+</div>
+\`\`\`
+
+Luego ejecuta:
+
+\`\`\`bash
+docforge render     # Genera images/pantalla-config.png desde html/pantalla-config.html
+docforge generate   # Genera el PDF con todas las imágenes incluidas
+\`\`\`
+
+Y obtienes un PDF con:
 1. ✅ Portada automática
 2. ✅ Índice jerárquico: 1, 1.1, 1.2, 2, 2.1, 2.2
 3. ✅ Saltos de página solo entre capítulos (nivel 1)
 4. ✅ Números de sección en los encabezados
 5. ✅ Colores institucionales desde \`project.yml\`
+6. ✅ Imágenes profesionales generadas desde HTML
 `;
 }
