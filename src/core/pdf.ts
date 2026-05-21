@@ -26,9 +26,10 @@ const DEFAULT_CSS = join(TEMPLATES_DIR, 'pdf-style.css');
  */
 function generateCoverHtml(
   projectConfig: ProjectConfig,
-  caseMeta: Record<string, unknown>
+  caseMeta: Record<string, unknown>,
+  caseName: string
 ): string {
-  const title = (caseMeta.case_title as string) || projectConfig.full_name || projectConfig.name;
+  const title = (caseMeta.case_title as string) || caseName;
   const subtitle = (caseMeta.manual_subtitle as string) || 'Manual de Usuario';
   const version = (caseMeta.case_version as string) || projectConfig.version || '1.0';
   const date = (caseMeta.case_date as string) || new Date().toISOString().split('T')[0];
@@ -128,7 +129,7 @@ export async function generatePdf(
       fullContent += '\n\n<div style="page-break-before: always;"></div>\n\n';
     } else {
       // Generar portada automática
-      fullContent += generateCoverHtml(projectConfig, caseMeta);
+      fullContent += generateCoverHtml(projectConfig, caseMeta, caseName);
     }
 
     // 4b. Índice generado automáticamente

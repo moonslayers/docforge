@@ -73,37 +73,56 @@ Sigue estos pasos:
 
 ## 📝 Formato de secciones (\`NN-nombre.md\`)
 
-Cada archivo de sección es Markdown puro, **sin HTML**:
+Cada archivo de sección es Markdown puro opcionalmente con frontmatter YAML al inicio:
 
 \`\`\`markdown
+---
+case_title: "Mi Título Personalizado para la Portada"
+---
+
 ## Requisitos Previos
 
 Antes de empezar necesitas:
 - Tener acceso al sistema
 - Tener permisos de administrador
-
-## Paso 1: Hacer algo importante
-
-Explica el paso con claridad...
-
-![Descripción de la imagen](./images/paso-1.png)
 \`\`\`
 
 ### Reglas del formato:
 
 - ✅ El **primer \`##\`** de cada archivo se usa como título en el índice
+- ✅ \`case_title\` en el frontmatter de la **primera sección** (01-*.md) define el título de la portada automática
+- ✅ Si no hay \`case_title\` en ninguna sección, la portada usará el **nombre de la carpeta** del caso
 - ✅ Los \`###\` y \`#\` no se usan para el índice (solo \`##\`)
 - ✅ Las imágenes van con ruta relativa: \`![texto](./images/archivo.png)\`
 - ✅ No necesitas portada, ni índice, ni saltos de página — todo lo genera docforge
 
 ---
 
-## 🎴 Portada personalizada (\`cover.md\`, opcional)
+## 🎴 Portada automática
 
-Si **no existe** \`cover.md\`, docforge genera una portada automática
-con el nombre del proyecto, título, versión y fecha.
+Cuando **no existe** \`cover.md\`, docforge genera una portada automática con:
+1. **Nombre del proyecto** (desde \`project.yml\`)
+2. **Subtítulo** ("Manual de Usuario")
+3. **Título del caso** (desde \`case_title\` en el frontmatter, o el nombre de la carpeta si no se definió)
 
-Si **quieres una portada personalizada**, crea \`cover.md\`:
+### Cómo controlar el título de la portada
+
+Pon \`case_title\` en el frontmatter de tu **primera sección** (\`01-*.md\`):
+
+\`\`\`markdown
+---
+case_title: "Liquidar Anticipadamente con Gastos de Cobranza"
+---
+
+## Lo que necesitas
+...
+\`\`\`
+
+Si no pones \`case_title\`, la portada usará automáticamente el nombre de la carpeta del caso.
+
+### Portada personalizada con \`cover.md\`
+
+Si quieres una portada **completamente personalizada**, crea \`cover.md\` en la carpeta del caso:
 
 \`\`\`markdown
 ---
@@ -117,7 +136,7 @@ case_title: "Mi Título Personalizado"
 Versión: {{case_version}}
 \`\`\`
 
-Puedes usar Markdown normal o HTML ligero en la portada.
+El \`cover.md\` reemplaza totalmente la portada automática. Puedes usar Markdown normal o HTML ligero.
 
 ---
 
@@ -131,7 +150,7 @@ Usa \`{{variable}}\` en el contenido. Se reemplazan automáticamente al generar 
 | \`{{project_name}}\` | \`project.yml → name\` | "CrediLink" |
 | \`{{project_version}}\` | \`project.yml → version\` | "2.0.0" |
 | \`{{company_name}}\` | \`project.yml → company.name\` | "Gobierno de BC" |
-| \`{{case_title}}\` | Frontmatter de cover.md o 1ra sección | "Liquidar Anticipadamente" |
+| \`{{case_title}}\` | Frontmatter de cover.md o 1ra sección (01-*.md) | "Liquidar Anticipadamente" |
 | \`{{case_version}}\` | Frontmatter | "1.0" |
 | \`{{case_date}}\` | Frontmatter | "2026-05-20" |
 | \`{{case_author}}\` | Frontmatter | "Equipo de Documentación" |
